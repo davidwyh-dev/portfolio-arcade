@@ -12,8 +12,14 @@ export function formatPercent(value: number): string {
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
+/** Parse a YYYY-MM-DD string as local midnight (not UTC). */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString("en-US", {
+  return parseLocalDate(isoDate).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -21,8 +27,8 @@ export function formatDate(isoDate: string): string {
 }
 
 export function daysBetween(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   const diffMs = end.getTime() - start.getTime();
   return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
