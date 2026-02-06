@@ -31,7 +31,7 @@ export function AccountsList() {
     setEditAccount({
       _id: account._id,
       name: account.name,
-      accountType: account.accountType as AccountType,
+      accountType: account.accountType,
       taxDeferred: account.taxDeferred,
       institution: account.institution,
     });

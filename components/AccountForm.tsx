@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { RetroInput } from "./ui/RetroInput";
-import { RetroSelect } from "./ui/RetroSelect";
+import { RetroCombobox } from "./ui/RetroCombobox";
 import { RetroCheckbox } from "./ui/RetroCheckbox";
 import { RetroButton } from "./ui/RetroButton";
 import { RetroModal } from "./ui/RetroModal";
@@ -56,7 +56,9 @@ export function AccountForm({ isOpen, onClose, editAccount }: AccountFormProps) 
 
   const handleAccountTypeChange = (type: AccountType) => {
     setAccountType(type);
-    setTaxDeferred(TAX_DEFERRED_DEFAULTS[type]);
+    if (type in TAX_DEFERRED_DEFAULTS) {
+      setTaxDeferred(TAX_DEFERRED_DEFAULTS[type]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,25 +109,24 @@ export function AccountForm({ isOpen, onClose, editAccount }: AccountFormProps) 
           placeholder="My 401k"
           required
         />
-        <RetroSelect
+        <RetroCombobox
           label="ACCOUNT TYPE"
           value={accountType}
-          onChange={(e) =>
-            handleAccountTypeChange(e.target.value as AccountType)
-          }
-          options={ACCOUNT_TYPES.map((t) => ({ value: t, label: t }))}
+          onChange={(val) => handleAccountTypeChange(val)}
+          options={[...ACCOUNT_TYPES]}
+          placeholder="Type or select account type..."
         />
         <RetroCheckbox
           label="Tax-Deferred"
           checked={taxDeferred}
           onChange={(e) => setTaxDeferred(e.target.checked)}
         />
-        <RetroSelect
+        <RetroCombobox
           label="INSTITUTION"
           value={institution}
-          onChange={(e) => setInstitution(e.target.value)}
-          options={INSTITUTIONS.map((i) => ({ value: i, label: i }))}
-          placeholder="Select institution..."
+          onChange={(val) => setInstitution(val)}
+          options={[...INSTITUTIONS]}
+          placeholder="Type or select institution..."
         />
 
         {error && (

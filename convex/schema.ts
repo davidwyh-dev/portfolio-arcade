@@ -8,13 +8,7 @@ export default defineSchema({
   accounts: defineTable({
     userId: v.id("users"),
     name: v.string(),
-    accountType: v.union(
-      v.literal("Traditional 401k"),
-      v.literal("Roth 401k"),
-      v.literal("Traditional IRA"),
-      v.literal("Roth IRA"),
-      v.literal("Investment")
-    ),
+    accountType: v.string(),
     taxDeferred: v.boolean(),
     institution: v.string(),
   }).index("by_user", ["userId"]),

@@ -17,13 +17,7 @@ export const list = query({
 export const create = mutation({
   args: {
     name: v.string(),
-    accountType: v.union(
-      v.literal("Traditional 401k"),
-      v.literal("Roth 401k"),
-      v.literal("Traditional IRA"),
-      v.literal("Roth IRA"),
-      v.literal("Investment")
-    ),
+    accountType: v.string(),
     taxDeferred: v.boolean(),
     institution: v.string(),
   },
@@ -44,13 +38,7 @@ export const update = mutation({
   args: {
     id: v.id("accounts"),
     name: v.string(),
-    accountType: v.union(
-      v.literal("Traditional 401k"),
-      v.literal("Roth 401k"),
-      v.literal("Traditional IRA"),
-      v.literal("Roth IRA"),
-      v.literal("Investment")
-    ),
+    accountType: v.string(),
     taxDeferred: v.boolean(),
     institution: v.string(),
   },

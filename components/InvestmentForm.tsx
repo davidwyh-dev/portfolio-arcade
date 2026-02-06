@@ -194,7 +194,7 @@ export function InvestmentForm({
       title={editInvestment ? "EDIT INVESTMENT" : "NEW INVESTMENT"}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {/* Ticker with autocomplete */}
+        {/* Ticker with autocomplete + custom entry */}
         <div className="relative">
           <RetroInput
             label="TICKER"
@@ -202,10 +202,10 @@ export function InvestmentForm({
             onChange={(e) => void handleTickerSearch(e.target.value)}
             onFocus={() => tickerResults.length > 0 && setShowResults(true)}
             onBlur={() => setTimeout(() => setShowResults(false), 200)}
-            placeholder="AAPL"
+            placeholder="AAPL or custom ticker"
             required
           />
-          {showResults && tickerResults.length > 0 && (
+          {showResults && (tickerResults.length > 0 || ticker.length > 0) && (
             <div className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded border border-border-dim bg-surface shadow-lg">
               {tickerResults.map((result) => (
                 <button
@@ -222,6 +222,23 @@ export function InvestmentForm({
                   </span>
                 </button>
               ))}
+              {ticker.length > 0 &&
+                !tickerResults.some(
+                  (r) => r.symbol.toUpperCase() === ticker.toUpperCase()
+                ) && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 border-t border-border-dim px-3 py-2 text-left transition-colors hover:bg-surface-light"
+                    onMouseDown={() => handleSelectTicker(ticker.toUpperCase())}
+                  >
+                    <span className="font-mono text-sm font-medium text-neon-yellow">
+                      {ticker.toUpperCase()}
+                    </span>
+                    <span className="font-terminal text-sm text-foreground/40">
+                      Use as custom ticker
+                    </span>
+                  </button>
+                )}
             </div>
           )}
         </div>

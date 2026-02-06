@@ -6,9 +6,9 @@ export const ACCOUNT_TYPES = [
   "Investment",
 ] as const;
 
-export type AccountType = (typeof ACCOUNT_TYPES)[number];
+export type AccountType = string;
 
-export const TAX_DEFERRED_DEFAULTS: Record<AccountType, boolean> = {
+export const TAX_DEFERRED_DEFAULTS: Record<string, boolean> = {
   "Traditional 401k": true,
   "Roth 401k": false,
   "Traditional IRA": true,
