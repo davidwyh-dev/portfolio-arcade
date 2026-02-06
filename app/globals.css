@@ -1,26 +1,99 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: #0a0a0a;
+  --color-foreground: #ededed;
+  --color-neon-cyan: #00ffff;
+  --color-neon-magenta: #ff00ff;
+  --color-neon-yellow: #faff00;
+  --color-neon-green: #39ff14;
+  --color-neon-red: #ff073a;
+  --color-surface: #141414;
+  --color-surface-light: #1e1e1e;
+  --color-border-dim: #2a2a2a;
+  --font-retro: var(--font-press-start);
+  --font-terminal: var(--font-vt323);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Subtle glow utilities */
+.glow-cyan {
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+.glow-magenta {
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.2);
+}
+
+.glow-green {
+  text-shadow: 0 0 10px rgba(57, 255, 20, 0.5), 0 0 20px rgba(57, 255, 20, 0.2);
+}
+
+.glow-red {
+  text-shadow: 0 0 10px rgba(255, 7, 58, 0.5), 0 0 20px rgba(255, 7, 58, 0.2);
+}
+
+.border-glow-cyan {
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.15), inset 0 0 8px rgba(0, 255, 255, 0.05);
+}
+
+.border-glow-magenta {
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.15), inset 0 0 8px rgba(255, 0, 255, 0.05);
+}
+
+.border-glow-green {
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.15), inset 0 0 8px rgba(57, 255, 20, 0.05);
+}
+
+/* Hover glow animation */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Blinking cursor */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Retro grid background */
+.retro-grid {
+  background-image:
+    linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
 }
