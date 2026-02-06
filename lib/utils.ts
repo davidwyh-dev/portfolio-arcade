@@ -33,12 +33,29 @@ export function daysBetween(startDate: string, endDate: string): number {
   return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-export function annualizedReturn(
-  costBasis: number,
-  currentValue: number,
-  daysHeld: number
+/**
+ * Compute a time-weighted return by geometrically linking an array of
+ * holding-period returns (HPRs).
+ *
+ *   TWR = (1 + HPR_1) * (1 + HPR_2) * ... * (1 + HPR_n) - 1
+ *
+ * Returns 0 when the array is empty.
+ */
+export function timeWeightedReturn(hprs: number[]): number {
+  if (hprs.length === 0) return 0;
+  const product = hprs.reduce((acc, hpr) => acc * (1 + hpr), 1);
+  return product - 1;
+}
+
+/**
+ * Annualize a cumulative return over a given number of days.
+ *
+ *   Annualized = (1 + cumulative)^(365 / days) - 1
+ */
+export function annualizeReturn(
+  cumulativeReturn: number,
+  totalDays: number,
 ): number {
-  if (costBasis <= 0 || daysHeld <= 0) return 0;
-  const holdingPeriodReturn = (currentValue - costBasis) / costBasis;
-  return Math.pow(1 + holdingPeriodReturn, 365 / daysHeld) - 1;
+  if (totalDays <= 0) return 0;
+  return Math.pow(1 + cumulativeReturn, 365 / totalDays) - 1;
 }

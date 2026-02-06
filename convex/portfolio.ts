@@ -2,21 +2,31 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+/** Parse YYYY-MM-DD as UTC midnight to avoid timezone shifts. */
+function toDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function daysBetweenDates(a: Date, b: Date): number {
+  return Math.max(1, Math.floor((b.getTime() - a.getTime()) / 86_400_000));
+}
+
 export const getSummary = query({
   args: {
     valuationDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const empty = {
+      totalValue: 0,
+      totalCost: 0,
+      timeWeightedReturn: 0,
+      holdings: 0,
+      valuationDate: "",
+    };
+
     const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return {
-        totalValue: 0,
-        totalCost: 0,
-        annualizedReturn: 0,
-        holdings: 0,
-        valuationDate: "",
-      };
-    }
+    if (!userId) return empty;
 
     const investments = await ctx.db
       .query("investments")
@@ -26,60 +36,93 @@ export const getSummary = query({
     const valuationDate =
       args.valuationDate || new Date().toISOString().split("T")[0];
 
-    // Filter to investments active as of the valuation date:
-    // - acquired on or before valuationDate
-    // - not yet sold, or sold after valuationDate
-    const active = investments.filter((inv) => {
-      if (inv.dateAcquired > valuationDate) return false;
-      if (inv.dateSold && inv.dateSold <= valuationDate) return false;
-      return true;
-    });
+    // All investments acquired on or before the valuation date
+    const relevant = investments.filter(
+      (inv) => inv.dateAcquired <= valuationDate
+    );
 
-    if (active.length === 0) {
-      return {
-        totalValue: 0,
-        totalCost: 0,
-        annualizedReturn: 0,
-        holdings: 0,
-        valuationDate,
-      };
+    if (relevant.length === 0) {
+      return { ...empty, valuationDate };
     }
 
+    // Separate active vs sold (as of valuation date)
+    const active = relevant.filter(
+      (inv) => !inv.dateSold || inv.dateSold > valuationDate
+    );
+    const sold = relevant.filter(
+      (inv) => inv.dateSold && inv.dateSold <= valuationDate
+    );
+
+    // Portfolio value & cost (active holdings only)
     let totalValue = 0;
     let totalCost = 0;
-    let weightedAnnReturn = 0;
+    for (const inv of active) {
+      totalValue += inv.currentValueUsd ?? 0;
+      totalCost += inv.costBasisUsd ?? inv.costBasis;
+    }
+
+    // ── Compute Time-Weighted Return ──────────────────────────────
+    // For each lot, compute its holding-period return (HPR).
+    //   Active lots: HPR = (currentValueUsd − costBasisUsd) / costBasisUsd
+    //   Sold lots:   HPR = (soldValueUsd − costBasisUsd) / costBasisUsd
+    // Then geometrically link all HPRs sorted by acquisition date
+    // and annualise over the total portfolio duration.
+
+    interface LotReturn {
+      dateAcquired: string;
+      hpr: number;
+    }
+
+    const lotReturns: LotReturn[] = [];
 
     for (const inv of active) {
-      const value = inv.currentValueUsd ?? 0;
       const cost = inv.costBasisUsd ?? inv.costBasis;
-      totalValue += value;
-      totalCost += cost;
-
+      const value = inv.currentValueUsd ?? 0;
       if (cost > 0 && value > 0) {
-        const acquired = new Date(inv.dateAcquired);
-        const end = new Date(valuationDate);
-
-        const daysHeld = Math.max(
-          1,
-          Math.floor(
-            (end.getTime() - acquired.getTime()) / (1000 * 60 * 60 * 24)
-          )
-        );
-
-        const holdingReturn = (value - cost) / cost;
-        const annReturn = Math.pow(1 + holdingReturn, 365 / daysHeld) - 1;
-        // Weight by current value
-        weightedAnnReturn += annReturn * value;
+        lotReturns.push({
+          dateAcquired: inv.dateAcquired,
+          hpr: (value - cost) / cost,
+        });
       }
     }
 
-    const annualizedReturn =
-      totalValue > 0 ? weightedAnnReturn / totalValue : 0;
+    for (const inv of sold) {
+      const cost = inv.costBasisUsd ?? inv.costBasis;
+      const value =
+        inv.soldValueUsd ?? (inv.soldUnitPrice ? inv.soldUnitPrice * inv.units : 0);
+      if (cost > 0 && value > 0) {
+        lotReturns.push({
+          dateAcquired: inv.dateAcquired,
+          hpr: (value - cost) / cost,
+        });
+      }
+    }
+
+    let timeWeightedReturn = 0;
+
+    if (lotReturns.length > 0) {
+      // Sort chronologically by acquisition date
+      lotReturns.sort((a, b) => a.dateAcquired.localeCompare(b.dateAcquired));
+
+      // Geometric linking: TWR = product(1 + HPR_i) − 1
+      const cumulativeTWR =
+        lotReturns.reduce((acc, lr) => acc * (1 + lr.hpr), 1) - 1;
+
+      // Annualise over the span from earliest acquisition to valuation date
+      const earliest = toDate(lotReturns[0].dateAcquired);
+      const end = toDate(valuationDate);
+      const totalDays = daysBetweenDates(earliest, end);
+
+      timeWeightedReturn =
+        totalDays >= 365
+          ? Math.pow(1 + cumulativeTWR, 365 / totalDays) - 1
+          : cumulativeTWR;
+    }
 
     return {
       totalValue,
       totalCost,
-      annualizedReturn,
+      timeWeightedReturn,
       holdings: active.length,
       valuationDate,
     };

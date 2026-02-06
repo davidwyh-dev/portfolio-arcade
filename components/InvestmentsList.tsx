@@ -27,6 +27,7 @@ export function InvestmentsList() {
         dateSold?: string;
         units: number;
         unitPrice: number;
+        soldUnitPrice?: number;
         currency: string;
       }
     | undefined
@@ -42,6 +43,7 @@ export function InvestmentsList() {
       dateSold: inv.dateSold ?? undefined,
       units: inv.units,
       unitPrice: inv.unitPrice ?? (inv.units > 0 ? inv.costBasis / inv.units : 0),
+      soldUnitPrice: inv.soldUnitPrice ?? undefined,
       currency: inv.currency,
     });
     setFormOpen(true);
@@ -177,9 +179,13 @@ export function InvestmentsList() {
             <tbody>
               {investments.map((inv) => {
                 const costUsd = inv.costBasisUsd ?? inv.costBasis;
+                const isSold = !!inv.dateSold && !!inv.soldUnitPrice;
+                const displayValue = isSold
+                  ? inv.soldValueUsd ?? inv.soldUnitPrice! * inv.units
+                  : inv.currentValueUsd;
                 const gain =
-                  inv.currentValueUsd !== undefined
-                    ? inv.currentValueUsd - costUsd
+                  displayValue !== undefined
+                    ? displayValue - costUsd
                     : undefined;
                 const isPositive = gain !== undefined && gain >= 0;
 
@@ -217,14 +223,14 @@ export function InvestmentsList() {
                       {formatCurrency(inv.costBasis, inv.currency)}
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      {inv.currentValueUsd !== undefined ? (
+                      {displayValue !== undefined ? (
                         <div>
-                          <span className={`font-mono text-sm font-medium text-foreground ${!inv.dateSold ? "italic" : ""}`}>
-                            {formatCurrency(inv.currentValueUsd)}
+                          <span className={`font-mono text-sm font-medium text-foreground ${!isSold ? "italic" : ""}`}>
+                            {formatCurrency(displayValue)}
                           </span>
                           {gain !== undefined && (
                             <span
-                              className={`ml-1 font-terminal text-xs ${!inv.dateSold ? "italic" : ""} ${isPositive ? "text-neon-green" : "text-neon-red"}`}
+                              className={`ml-1 font-terminal text-xs ${!isSold ? "italic" : ""} ${isPositive ? "text-neon-green" : "text-neon-red"}`}
                             >
                               {isPositive ? "+" : ""}
                               {formatCurrency(gain)}

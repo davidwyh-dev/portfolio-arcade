@@ -21,6 +21,7 @@ interface InvestmentFormProps {
     dateSold?: string;
     units: number;
     unitPrice: number;
+    soldUnitPrice?: number;
     currency: string;
   };
 }
@@ -48,6 +49,7 @@ export function InvestmentForm({
   const [dateSold, setDateSold] = useState("");
   const [units, setUnits] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  const [soldUnitPrice, setSoldUnitPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +62,7 @@ export function InvestmentForm({
       setDateSold(editInvestment.dateSold ?? "");
       setUnits(editInvestment.units.toString());
       setUnitPrice(editInvestment.unitPrice.toString());
+      setSoldUnitPrice(editInvestment.soldUnitPrice?.toString() ?? "");
       setCurrency(editInvestment.currency);
     } else {
       setTicker("");
@@ -68,6 +71,7 @@ export function InvestmentForm({
       setDateSold("");
       setUnits("");
       setUnitPrice("");
+      setSoldUnitPrice("");
       setCurrency("USD");
     }
     setError("");
@@ -113,6 +117,10 @@ export function InvestmentForm({
       const parsedUnitPrice = parseFloat(unitPrice);
       const costBasis = parsedUnitPrice * parsedUnits;
 
+      const parsedSoldUnitPrice = soldUnitPrice
+        ? parseFloat(soldUnitPrice)
+        : undefined;
+
       const investmentData = {
         accountId: accountId as Id<"accounts">,
         ticker: ticker.toUpperCase(),
@@ -120,6 +128,7 @@ export function InvestmentForm({
         dateSold: dateSold || undefined,
         units: parsedUnits,
         unitPrice: parsedUnitPrice,
+        soldUnitPrice: parsedSoldUnitPrice,
         currency,
       };
 
@@ -153,11 +162,16 @@ export function InvestmentForm({
 
         const currentValueUsd = priceUsd * investmentData.units;
         const costBasisUsd = costBasis * fxRate;
+        const soldValueUsd =
+          parsedSoldUnitPrice !== undefined
+            ? parsedSoldUnitPrice * investmentData.units * fxRate
+            : undefined;
         await updatePrice({
           id: investmentId,
           currentPriceUsd: priceUsd,
           currentValueUsd,
           costBasisUsd,
+          soldValueUsd,
         });
       } catch {
         // Price fetch failed — value will be populated on next manual refresh
@@ -234,9 +248,23 @@ export function InvestmentForm({
             label="DATE SOLD (OPTIONAL)"
             type="date"
             value={dateSold}
-            onChange={(e) => setDateSold(e.target.value)}
+            onChange={(e) => {
+              setDateSold(e.target.value);
+              if (!e.target.value) setSoldUnitPrice("");
+            }}
           />
         </div>
+
+        {dateSold && (
+          <RetroInput
+            label="SOLD UNIT PRICE"
+            type="number"
+            step="any"
+            value={soldUnitPrice}
+            onChange={(e) => setSoldUnitPrice(e.target.value)}
+            placeholder="175.00"
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <RetroInput
@@ -266,6 +294,21 @@ export function InvestmentForm({
             </span>
             <span className="font-mono text-sm font-medium text-neon-green">
               {(parseFloat(units) * parseFloat(unitPrice)).toLocaleString(
+                undefined,
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )}{" "}
+              {currency}
+            </span>
+          </div>
+        )}
+
+        {units && soldUnitPrice && (
+          <div className="rounded border border-border-dim bg-surface px-3 py-2">
+            <span className="font-terminal text-sm text-foreground/40">
+              SALE PROCEEDS:{" "}
+            </span>
+            <span className="font-mono text-sm font-medium text-neon-cyan">
+              {(parseFloat(units) * parseFloat(soldUnitPrice)).toLocaleString(
                 undefined,
                 { minimumFractionDigits: 2, maximumFractionDigits: 2 }
               )}{" "}

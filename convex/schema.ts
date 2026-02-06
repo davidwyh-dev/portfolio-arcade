@@ -32,6 +32,8 @@ export default defineSchema({
     currentPriceUsd: v.optional(v.float64()),
     currentValueUsd: v.optional(v.float64()),
     costBasisUsd: v.optional(v.float64()),
+    soldUnitPrice: v.optional(v.float64()),
+    soldValueUsd: v.optional(v.float64()),
     lastPriceUpdate: v.optional(v.string()),
   })
     .index("by_user", ["userId"])

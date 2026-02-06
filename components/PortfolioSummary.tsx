@@ -42,7 +42,7 @@ export function PortfolioSummary() {
     );
   }
 
-  const isPositiveReturn = summary.annualizedReturn >= 0;
+  const isPositiveReturn = summary.timeWeightedReturn >= 0;
 
   return (
     <div>
@@ -66,7 +66,7 @@ export function PortfolioSummary() {
         </RetroCard>
         <RetroCard glowColor={isPositiveReturn ? "green" : "magenta"}>
           <p className="mb-1 font-terminal text-lg text-foreground/50">
-            ANNUALIZED RETURN
+            TIME-WEIGHTED RETURN
           </p>
           <p
             className={`font-retro text-lg sm:text-xl ${
@@ -75,7 +75,7 @@ export function PortfolioSummary() {
                 : "glow-red text-neon-red"
             }`}
           >
-            {formatPercent(summary.annualizedReturn)}
+            {formatPercent(summary.timeWeightedReturn)}
           </p>
           <p className="mt-2 font-terminal text-base text-foreground/30">
             Cost basis: {formatCurrency(summary.totalCost)}

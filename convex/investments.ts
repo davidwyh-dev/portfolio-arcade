@@ -34,6 +34,7 @@ export const create = mutation({
     dateSold: v.optional(v.string()),
     units: v.float64(),
     unitPrice: v.float64(),
+    soldUnitPrice: v.optional(v.float64()),
     currency: v.string(),
   },
   handler: async (ctx, args) => {
@@ -57,6 +58,7 @@ export const create = mutation({
       units: args.units,
       unitPrice: args.unitPrice,
       costBasis,
+      soldUnitPrice: args.soldUnitPrice,
       currency: args.currency,
     });
   },
@@ -71,6 +73,7 @@ export const update = mutation({
     dateSold: v.optional(v.string()),
     units: v.float64(),
     unitPrice: v.float64(),
+    soldUnitPrice: v.optional(v.float64()),
     currency: v.string(),
   },
   handler: async (ctx, args) => {
@@ -91,6 +94,7 @@ export const update = mutation({
       units: args.units,
       unitPrice: args.unitPrice,
       costBasis,
+      soldUnitPrice: args.soldUnitPrice,
       currency: args.currency,
     });
   },
@@ -115,13 +119,18 @@ export const updatePrice = mutation({
     currentPriceUsd: v.float64(),
     currentValueUsd: v.float64(),
     costBasisUsd: v.float64(),
+    soldValueUsd: v.optional(v.float64()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, {
+    const patch: Record<string, unknown> = {
       currentPriceUsd: args.currentPriceUsd,
       currentValueUsd: args.currentValueUsd,
       costBasisUsd: args.costBasisUsd,
       lastPriceUpdate: new Date().toISOString(),
-    });
+    };
+    if (args.soldValueUsd !== undefined) {
+      patch.soldValueUsd = args.soldValueUsd;
+    }
+    await ctx.db.patch(args.id, patch);
   },
 });
