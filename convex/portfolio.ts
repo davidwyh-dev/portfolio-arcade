@@ -20,6 +20,7 @@ export const getSummary = query({
     const empty = {
       totalValue: 0,
       totalCost: 0,
+      realizedGainLoss: 0,
       timeWeightedReturn: 0,
       holdings: 0,
       valuationDate: "",
@@ -59,6 +60,15 @@ export const getSummary = query({
     for (const inv of active) {
       totalValue += inv.currentValueUsd ?? 0;
       totalCost += inv.costBasisUsd ?? inv.costBasis;
+    }
+
+    // Realized gain/loss from sold lots
+    let realizedGainLoss = 0;
+    for (const inv of sold) {
+      const cost = inv.costBasisUsd ?? inv.costBasis;
+      const proceeds =
+        inv.soldValueUsd ?? (inv.soldUnitPrice ? inv.soldUnitPrice * inv.units : 0);
+      realizedGainLoss += proceeds - cost;
     }
 
     // ── Compute Time-Weighted Return ──────────────────────────────
@@ -122,6 +132,7 @@ export const getSummary = query({
     return {
       totalValue,
       totalCost,
+      realizedGainLoss,
       timeWeightedReturn,
       holdings: active.length,
       valuationDate,

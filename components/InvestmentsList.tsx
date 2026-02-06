@@ -10,7 +10,11 @@ import { InvestmentForm } from "./InvestmentForm";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export function InvestmentsList() {
+interface InvestmentsListProps {
+  showSold?: boolean;
+}
+
+export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
   const investments = useQuery(api.investments.list);
   const removeInvestment = useMutation(api.investments.remove);
   const updatePrice = useMutation(api.investments.updatePrice);
@@ -33,6 +37,12 @@ export function InvestmentsList() {
     | undefined
   >(undefined);
   const [refreshing, setRefreshing] = useState(false);
+
+  const displayInvestments = investments
+    ? showSold
+      ? investments
+      : investments.filter((inv) => !inv.dateSold)
+    : undefined;
 
   const handleEdit = (inv: NonNullable<typeof investments>[number]) => {
     setEditInvestment({
@@ -139,7 +149,7 @@ export function InvestmentsList() {
         <RetroCard glowColor="green" className="animate-pulse">
           <div className="h-24" />
         </RetroCard>
-      ) : investments.length === 0 ? (
+      ) : displayInvestments.length === 0 ? (
         <RetroCard glowColor="green">
           <p className="text-center font-terminal text-lg text-foreground/30">
             NO INVESTMENTS YET — ADD YOUR FIRST HOLDING
@@ -177,7 +187,7 @@ export function InvestmentsList() {
               </tr>
             </thead>
             <tbody>
-              {investments.map((inv) => {
+              {displayInvestments!.map((inv) => {
                 const costUsd = inv.costBasisUsd ?? inv.costBasis;
                 const isSold = !!inv.dateSold && !!inv.soldUnitPrice;
                 const displayValue = isSold

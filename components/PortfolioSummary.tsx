@@ -1,19 +1,27 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RetroCard } from "./ui/RetroCard";
+import { RetroCheckbox } from "./ui/RetroCheckbox";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-export function PortfolioSummary() {
-  const [valuationDate, setValuationDate] = useState(todayISO);
+interface PortfolioSummaryProps {
+  includeRealized: boolean;
+  onToggleRealized: (value: boolean) => void;
+}
 
-  // Only pass date to the query when it has a value
+export function PortfolioSummary({
+  includeRealized,
+  onToggleRealized,
+}: PortfolioSummaryProps) {
+  const valuationDate = todayISO();
+
   const queryArgs = useMemo(
     () => ({
       ...(valuationDate ? { valuationDate } : {}),
@@ -26,9 +34,10 @@ export function PortfolioSummary() {
   if (!summary) {
     return (
       <div>
-        <ValuationDateBar
+        <TopBar
           valuationDate={valuationDate}
-          onValuationDateChange={setValuationDate}
+          includeRealized={includeRealized}
+          onToggleRealized={onToggleRealized}
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <RetroCard glowColor="cyan" className="animate-pulse">
@@ -42,13 +51,18 @@ export function PortfolioSummary() {
     );
   }
 
+  const displayValue = includeRealized
+    ? summary.totalValue + summary.realizedGainLoss
+    : summary.totalValue;
+
   const isPositiveReturn = summary.timeWeightedReturn >= 0;
 
   return (
     <div>
-      <ValuationDateBar
+      <TopBar
         valuationDate={valuationDate}
-        onValuationDateChange={setValuationDate}
+        includeRealized={includeRealized}
+        onToggleRealized={onToggleRealized}
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <RetroCard glowColor="cyan">
@@ -56,13 +70,28 @@ export function PortfolioSummary() {
             PORTFOLIO VALUE
           </p>
           <p className="glow-cyan font-retro text-lg text-neon-cyan sm:text-xl">
-            {formatCurrency(summary.totalValue)}
+            {formatCurrency(displayValue)}
           </p>
-          <p className="mt-2 font-terminal text-base text-foreground/30">
-            {summary.holdings} active holding
-            {summary.holdings !== 1 ? "s" : ""} as of{" "}
-            {summary.valuationDate}
-          </p>
+          <div className="mt-2 space-y-0.5">
+            <p className="font-terminal text-base text-foreground/30">
+              {summary.holdings} active holding
+              {summary.holdings !== 1 ? "s" : ""} as of{" "}
+              {summary.valuationDate}
+            </p>
+            {includeRealized && summary.realizedGainLoss !== 0 && (
+              <p
+                className={`font-terminal text-base ${
+                  summary.realizedGainLoss >= 0
+                    ? "text-neon-green/60"
+                    : "text-neon-red/60"
+                }`}
+              >
+                Realized {summary.realizedGainLoss >= 0 ? "gain" : "loss"}:{" "}
+                {summary.realizedGainLoss >= 0 ? "+" : ""}
+                {formatCurrency(summary.realizedGainLoss)}
+              </p>
+            )}
+          </div>
         </RetroCard>
         <RetroCard glowColor={isPositiveReturn ? "green" : "magenta"}>
           <p className="mb-1 font-terminal text-lg text-foreground/50">
@@ -86,38 +115,36 @@ export function PortfolioSummary() {
   );
 }
 
-/* ── Valuation date selector bar ─────────────────────────────────── */
+/* ── Top bar with valuation date (display-only) & realized toggle ── */
 
-interface ValuationDateBarProps {
+interface TopBarProps {
   valuationDate: string;
-  onValuationDateChange: (v: string) => void;
+  includeRealized: boolean;
+  onToggleRealized: (value: boolean) => void;
 }
 
-function ValuationDateBar({
+function TopBar({
   valuationDate,
-  onValuationDateChange,
-}: ValuationDateBarProps) {
+  includeRealized,
+  onToggleRealized,
+}: TopBarProps) {
   return (
-    <div className="mb-4 flex flex-wrap items-start gap-4">
+    <div className="mb-4 flex flex-wrap items-center gap-6">
       <div className="flex flex-col gap-1">
         <label className="font-terminal text-sm tracking-wide text-foreground/50">
           VALUATION DATE
         </label>
-        <input
-          type="date"
-          value={valuationDate}
-          onChange={(e) => onValuationDateChange(e.target.value)}
-          className="rounded border border-border-dim bg-background px-3 py-1.5 font-mono text-sm text-foreground outline-none transition-colors duration-200 placeholder:text-foreground/30 focus:border-neon-cyan/60 focus:shadow-[0_0_8px_rgba(0,255,255,0.1)]"
+        <span className="rounded border border-border-dim bg-background px-3 py-1.5 font-mono text-sm text-foreground/70">
+          {valuationDate}
+        </span>
+      </div>
+      <div className="mt-4">
+        <RetroCheckbox
+          label="INCLUDE REALIZED G/L"
+          checked={includeRealized}
+          onChange={(e) => onToggleRealized(e.target.checked)}
         />
       </div>
-      {valuationDate !== todayISO() && (
-        <button
-          onClick={() => onValuationDateChange(todayISO())}
-          className="mt-6 font-terminal text-sm text-foreground/40 transition-colors hover:text-neon-cyan"
-        >
-          RESET
-        </button>
-      )}
     </div>
   );
 }

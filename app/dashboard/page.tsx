@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { AccountsList } from "@/components/AccountsList";
 import { InvestmentsList } from "@/components/InvestmentsList";
 
 export default function DashboardPage() {
+  const [includeRealized, setIncludeRealized] = useState(false);
+
   return (
     <div className="retro-grid mx-auto max-w-5xl px-6 py-8">
       {/* Portfolio Summary */}
@@ -12,7 +15,10 @@ export default function DashboardPage() {
         <h2 className="mb-4 font-retro text-xs text-foreground/50">
           DASHBOARD
         </h2>
-        <PortfolioSummary />
+        <PortfolioSummary
+          includeRealized={includeRealized}
+          onToggleRealized={setIncludeRealized}
+        />
       </section>
 
       {/* Accounts Section */}
@@ -22,7 +28,7 @@ export default function DashboardPage() {
 
       {/* Investments Section */}
       <section className="mb-8">
-        <InvestmentsList />
+        <InvestmentsList showSold={includeRealized} />
       </section>
     </div>
   );
