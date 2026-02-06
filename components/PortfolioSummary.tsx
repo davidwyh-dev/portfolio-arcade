@@ -11,16 +11,14 @@ function todayISO(): string {
 }
 
 export function PortfolioSummary() {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState(todayISO);
+  const [valuationDate, setValuationDate] = useState(todayISO);
 
-  // Only pass dates to the query when they have values
+  // Only pass date to the query when it has a value
   const queryArgs = useMemo(
     () => ({
-      ...(startDate ? { startDate } : {}),
-      ...(endDate ? { endDate } : {}),
+      ...(valuationDate ? { valuationDate } : {}),
     }),
-    [startDate, endDate]
+    [valuationDate]
   );
 
   const summary = useQuery(api.portfolio.getSummary, queryArgs);
@@ -28,11 +26,9 @@ export function PortfolioSummary() {
   if (!summary) {
     return (
       <div>
-        <DateRangeBar
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
+        <ValuationDateBar
+          valuationDate={valuationDate}
+          onValuationDateChange={setValuationDate}
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <RetroCard glowColor="cyan" className="animate-pulse">
@@ -50,12 +46,9 @@ export function PortfolioSummary() {
 
   return (
     <div>
-      <DateRangeBar
-        startDate={startDate}
-        endDate={endDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-        effectiveStartDate={summary.effectiveStartDate}
+      <ValuationDateBar
+        valuationDate={valuationDate}
+        onValuationDateChange={setValuationDate}
       />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <RetroCard glowColor="cyan">
@@ -68,7 +61,7 @@ export function PortfolioSummary() {
           <p className="mt-2 font-terminal text-base text-foreground/30">
             {summary.holdings} active holding
             {summary.holdings !== 1 ? "s" : ""} as of{" "}
-            {summary.effectiveEndDate}
+            {summary.valuationDate}
           </p>
         </RetroCard>
         <RetroCard glowColor={isPositiveReturn ? "green" : "magenta"}>
@@ -85,7 +78,7 @@ export function PortfolioSummary() {
             {formatPercent(summary.annualizedReturn)}
           </p>
           <p className="mt-2 font-terminal text-base text-foreground/30">
-            Value at start: {formatCurrency(summary.totalCost)}
+            Cost basis: {formatCurrency(summary.totalCost)}
           </p>
         </RetroCard>
       </div>
@@ -93,59 +86,33 @@ export function PortfolioSummary() {
   );
 }
 
-/* ── Date range selector bar ───────────────────────────────────── */
+/* ── Valuation date selector bar ─────────────────────────────────── */
 
-interface DateRangeBarProps {
-  startDate: string;
-  endDate: string;
-  onStartDateChange: (v: string) => void;
-  onEndDateChange: (v: string) => void;
-  effectiveStartDate?: string;
+interface ValuationDateBarProps {
+  valuationDate: string;
+  onValuationDateChange: (v: string) => void;
 }
 
-function DateRangeBar({
-  startDate,
-  endDate,
-  onStartDateChange,
-  onEndDateChange,
-  effectiveStartDate,
-}: DateRangeBarProps) {
+function ValuationDateBar({
+  valuationDate,
+  onValuationDateChange,
+}: ValuationDateBarProps) {
   return (
     <div className="mb-4 flex flex-wrap items-start gap-4">
       <div className="flex flex-col gap-1">
         <label className="font-terminal text-sm tracking-wide text-foreground/50">
-          START DATE
+          VALUATION DATE
         </label>
         <input
           type="date"
-          value={startDate}
-          placeholder={effectiveStartDate}
-          onChange={(e) => onStartDateChange(e.target.value)}
-          className="rounded border border-border-dim bg-background px-3 py-1.5 font-mono text-sm text-foreground outline-none transition-colors duration-200 placeholder:text-foreground/30 focus:border-neon-cyan/60 focus:shadow-[0_0_8px_rgba(0,255,255,0.1)]"
-        />
-        {!startDate && effectiveStartDate && (
-          <span className="font-terminal text-xs text-foreground/30">
-            Earliest: {effectiveStartDate}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="font-terminal text-sm tracking-wide text-foreground/50">
-          END DATE
-        </label>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => onEndDateChange(e.target.value)}
+          value={valuationDate}
+          onChange={(e) => onValuationDateChange(e.target.value)}
           className="rounded border border-border-dim bg-background px-3 py-1.5 font-mono text-sm text-foreground outline-none transition-colors duration-200 placeholder:text-foreground/30 focus:border-neon-cyan/60 focus:shadow-[0_0_8px_rgba(0,255,255,0.1)]"
         />
       </div>
-      {startDate && (
+      {valuationDate !== todayISO() && (
         <button
-          onClick={() => {
-            onStartDateChange("");
-            onEndDateChange(todayISO());
-          }}
+          onClick={() => onValuationDateChange(todayISO())}
           className="mt-6 font-terminal text-sm text-foreground/40 transition-colors hover:text-neon-cyan"
         >
           RESET
