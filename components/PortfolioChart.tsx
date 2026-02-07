@@ -21,9 +21,15 @@ import { formatCurrency } from "@/lib/utils";
 
 type ChartMode = "value" | "gainLoss";
 
-export function PortfolioChart() {
+interface PortfolioChartProps {
+  selectedBenchmark: "VOO" | "QQQ" | "DIA";
+}
+
+export function PortfolioChart({ selectedBenchmark }: PortfolioChartProps) {
   const [chartMode, setChartMode] = useState<ChartMode>("value");
-  const historicalData = useQuery(api.portfolio.getHistoricalValues);
+  const historicalData = useQuery(api.portfolio.getHistoricalValues, {
+    benchmarkTicker: selectedBenchmark,
+  });
 
   if (!historicalData) {
     return (
@@ -46,6 +52,13 @@ export function PortfolioChart() {
     );
   }
 
+  // Benchmark names for display
+  const benchmarkNames = {
+    VOO: "S&P 500",
+    QQQ: "NASDAQ-100",
+    DIA: "Dow Jones",
+  };
+
   // Format data for chart - use short date format
   const chartData = historicalData.map((item) => ({
     date: new Date(item.date).toLocaleDateString("en-US", {
@@ -56,6 +69,7 @@ export function PortfolioChart() {
     portfolioValue: item.totalValue,
     gainLoss: item.gainLoss,
     timeWeightedReturn: item.timeWeightedReturn,
+    benchmarkTimeWeightedReturn: item.benchmarkTimeWeightedReturn,
   }));
 
   // Determine color based on latest time-weighted return
@@ -171,7 +185,7 @@ export function PortfolioChart() {
             formatter={(value: any, name: string) => {
               if (name === "Portfolio Value" || name === "Gain/Loss") {
                 return [formatCurrency(value), name];
-              } else if (name === "Time-Weighted Return") {
+              } else if (name === "Time-Weighted Return" || name.includes("Benchmark")) {
                 return [`${value.toFixed(2)}%`, name];
               }
               return [value, name];
@@ -216,6 +230,16 @@ export function PortfolioChart() {
             strokeWidth={2}
             dot={{ fill: returnLineColor, r: 3 }}
             name="Time-Weighted Return"
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="benchmarkTimeWeightedReturn"
+            stroke="rgba(255, 0, 255, 1)"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={{ fill: "rgba(255, 0, 255, 1)", r: 3 }}
+            name={`${benchmarkNames[selectedBenchmark]} Benchmark`}
           />
         </ComposedChart>
       </ResponsiveContainer>

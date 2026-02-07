@@ -26,6 +26,11 @@ export const getSummary = query({
       sharpeRatio: 0,
       holdings: 0,
       valuationDate: "",
+      benchmarks: {
+        VOO: { totalValue: 0, timeWeightedReturn: 0, annualizedVolatility: 0, sharpeRatio: 0 },
+        QQQ: { totalValue: 0, timeWeightedReturn: 0, annualizedVolatility: 0, sharpeRatio: 0 },
+        DIA: { totalValue: 0, timeWeightedReturn: 0, annualizedVolatility: 0, sharpeRatio: 0 },
+      },
     };
 
     const userId = await getAuthUserId(ctx);
@@ -230,6 +235,168 @@ export const getSummary = query({
       }
     }
 
+    // ── Compute Benchmark Values ──────────────────────────────────────
+    // Calculate what the portfolio would be worth if invested in benchmark ETFs
+    const benchmarkTickers = ["VOO", "QQQ", "DIA"];
+    const benchmarkPrices = new Map<string, Array<{ date: string; adjClose: number }>>();
+
+    // Fetch historical prices for benchmark ETFs
+    for (const ticker of benchmarkTickers) {
+      const data = await ctx.db
+        .query("historicalPriceCache")
+        .withIndex("by_ticker", (q) => q.eq("ticker", ticker))
+        .first();
+      if (data && data.prices) {
+        benchmarkPrices.set(ticker, data.prices);
+      }
+    }
+
+    // Helper function to calculate benchmark metrics
+    const calculateBenchmarkMetrics = (
+      ticker: string
+    ): {
+      totalValue: number;
+      timeWeightedReturn: number;
+      annualizedVolatility: number;
+      sharpeRatio: number;
+    } => {
+      const prices = benchmarkPrices.get(ticker);
+      if (!prices || prices.length === 0) {
+        return { totalValue: 0, timeWeightedReturn: 0, annualizedVolatility: 0, sharpeRatio: 0 };
+      }
+
+      // Calculate total value: what the portfolio would be worth in this benchmark
+      let totalValue = 0;
+      const benchmarkLotReturns: LotReturn[] = [];
+
+      for (const inv of active) {
+        const costBasisUsd = inv.costBasisUsd ?? inv.costBasis;
+
+        // Find price on date acquired (or nearest prior date)
+        const acquiredPrice = prices
+          .filter((p) => p.date <= inv.dateAcquired)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        // Find price on valuation date (or nearest prior date)
+        const valuationPrice = prices
+          .filter((p) => p.date <= valuationDate)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        if (acquiredPrice && valuationPrice) {
+          // Calculate how many shares could have been bought
+          const shares = costBasisUsd / acquiredPrice.adjClose;
+          // Calculate what those shares are worth now
+          const value = shares * valuationPrice.adjClose;
+          totalValue += value;
+
+          // Calculate HPR for this lot
+          if (costBasisUsd > 0 && value > 0) {
+            benchmarkLotReturns.push({
+              dateAcquired: inv.dateAcquired,
+              hpr: (value - costBasisUsd) / costBasisUsd,
+            });
+          }
+        }
+      }
+
+      // Calculate time-weighted return
+      let timeWeightedReturn = 0;
+      if (benchmarkLotReturns.length > 0) {
+        benchmarkLotReturns.sort((a, b) => a.dateAcquired.localeCompare(b.dateAcquired));
+        const cumulativeTWR =
+          benchmarkLotReturns.reduce((acc, lr) => acc * (1 + lr.hpr), 1) - 1;
+
+        const earliest = toDate(benchmarkLotReturns[0].dateAcquired);
+        const end = toDate(valuationDate);
+        const totalDays = daysBetweenDates(earliest, end);
+
+        timeWeightedReturn =
+          totalDays >= 365
+            ? Math.pow(1 + cumulativeTWR, 365 / totalDays) - 1
+            : cumulativeTWR;
+      }
+
+      // Calculate volatility and Sharpe ratio
+      let annualizedVolatility = 0;
+      let sharpeRatio = 0;
+
+      // Get all dates for benchmark calculations
+      const benchmarkDates = sortedDates.filter(
+        (date) =>
+          benchmarkLotReturns.length > 0 &&
+          date >= benchmarkLotReturns[0].dateAcquired &&
+          date <= valuationDate
+      );
+
+      // Calculate daily portfolio values for this benchmark
+      const benchmarkDailyValues: number[] = [];
+      for (const date of benchmarkDates) {
+        const relevantInvs = active.filter((inv) => inv.dateAcquired <= date);
+
+        let dailyValue = 0;
+        for (const inv of relevantInvs) {
+          const costBasisUsd = inv.costBasisUsd ?? inv.costBasis;
+
+          // Find price on date acquired
+          const acquiredPrice = prices
+            .filter((p) => p.date <= inv.dateAcquired)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+          // Find price on this date
+          const currentPrice = prices
+            .filter((p) => p.date <= date)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+          if (acquiredPrice && currentPrice) {
+            const shares = costBasisUsd / acquiredPrice.adjClose;
+            dailyValue += shares * currentPrice.adjClose;
+          }
+        }
+
+        if (dailyValue > 0) {
+          benchmarkDailyValues.push(dailyValue);
+        }
+      }
+
+      // Calculate daily returns
+      if (benchmarkDailyValues.length > 1) {
+        const dailyReturns: number[] = [];
+        for (let i = 1; i < benchmarkDailyValues.length; i++) {
+          const dailyReturn =
+            (benchmarkDailyValues[i] - benchmarkDailyValues[i - 1]) /
+            benchmarkDailyValues[i - 1];
+          dailyReturns.push(dailyReturn);
+        }
+
+        if (dailyReturns.length > 0) {
+          const avgDailyReturn =
+            dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
+
+          const variance =
+            dailyReturns.reduce((sum, r) => sum + Math.pow(r - avgDailyReturn, 2), 0) /
+            dailyReturns.length;
+          const dailyStdDev = Math.sqrt(variance);
+
+          annualizedVolatility = dailyStdDev * Math.sqrt(252);
+
+          const riskFreeRate = 0.04;
+          const annualizedReturn = Math.pow(1 + avgDailyReturn, 252) - 1;
+          sharpeRatio =
+            annualizedVolatility > 0
+              ? (annualizedReturn - riskFreeRate) / annualizedVolatility
+              : 0;
+        }
+      }
+
+      return { totalValue, timeWeightedReturn, annualizedVolatility, sharpeRatio };
+    };
+
+    const benchmarks = {
+      VOO: calculateBenchmarkMetrics("VOO"),
+      QQQ: calculateBenchmarkMetrics("QQQ"),
+      DIA: calculateBenchmarkMetrics("DIA"),
+    };
+
     return {
       totalValue,
       totalCost,
@@ -239,14 +406,17 @@ export const getSummary = query({
       sharpeRatio,
       holdings: active.length,
       valuationDate,
+      benchmarks,
     };
   },
 });
 
 /** Get historical portfolio values over time using cached historical prices */
 export const getHistoricalValues = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    benchmarkTicker: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
@@ -276,6 +446,19 @@ export const getHistoricalValues = query({
       const data = historicalData[i];
       if (data && data.prices) {
         priceMap.set(tickers[i], data.prices);
+      }
+    }
+
+    // Fetch benchmark prices if requested
+    const benchmarkTicker = args.benchmarkTicker;
+    let benchmarkPrices: Array<{ date: string; adjClose: number }> = [];
+    if (benchmarkTicker) {
+      const benchmarkData = await ctx.db
+        .query("historicalPriceCache")
+        .withIndex("by_ticker", (q) => q.eq("ticker", benchmarkTicker))
+        .first();
+      if (benchmarkData && benchmarkData.prices) {
+        benchmarkPrices = benchmarkData.prices;
       }
     }
 
@@ -365,12 +548,60 @@ export const getHistoricalValues = query({
             : cumulativeTWR;
       }
 
+      // Calculate benchmark time-weighted return for this date
+      let benchmarkTimeWeightedReturn = 0;
+      if (benchmarkPrices.length > 0) {
+        const benchmarkLotReturns: Array<{ dateAcquired: string; hpr: number }> = [];
+
+        for (const inv of relevantInvestments) {
+          const costBasisUsd = inv.costBasisUsd ?? inv.costBasis;
+
+          // Find benchmark price on date acquired (or nearest prior date)
+          const acquiredPrice = benchmarkPrices
+            .filter((p) => p.date <= inv.dateAcquired)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+          // Find benchmark price on this date (or nearest prior date)
+          const currentPrice = benchmarkPrices
+            .filter((p) => p.date <= date)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+          if (acquiredPrice && currentPrice) {
+            const shares = costBasisUsd / acquiredPrice.adjClose;
+            const value = shares * currentPrice.adjClose;
+
+            if (costBasisUsd > 0 && value > 0) {
+              benchmarkLotReturns.push({
+                dateAcquired: inv.dateAcquired,
+                hpr: (value - costBasisUsd) / costBasisUsd,
+              });
+            }
+          }
+        }
+
+        if (benchmarkLotReturns.length > 0) {
+          benchmarkLotReturns.sort((a, b) => a.dateAcquired.localeCompare(b.dateAcquired));
+          const cumulativeTWR =
+            benchmarkLotReturns.reduce((acc, lr) => acc * (1 + lr.hpr), 1) - 1;
+
+          const earliest = toDate(benchmarkLotReturns[0].dateAcquired);
+          const end = toDate(date);
+          const totalDays = daysBetweenDates(earliest, end);
+
+          benchmarkTimeWeightedReturn =
+            totalDays >= 365
+              ? Math.pow(1 + cumulativeTWR, 365 / totalDays) - 1
+              : cumulativeTWR;
+        }
+      }
+
       return {
         date,
         totalValue,
         totalCost,
         gainLoss: totalValue - totalCost,
         timeWeightedReturn: timeWeightedReturn * 100, // Convert to percentage
+        benchmarkTimeWeightedReturn: benchmarkTimeWeightedReturn * 100, // Convert to percentage
       };
     });
 

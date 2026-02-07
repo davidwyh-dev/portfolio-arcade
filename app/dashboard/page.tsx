@@ -8,6 +8,7 @@ import { InvestmentsList } from "@/components/InvestmentsList";
 
 export default function DashboardPage() {
   const [includeRealized, setIncludeRealized] = useState(false);
+  const [selectedBenchmark, setSelectedBenchmark] = useState<"VOO" | "QQQ" | "DIA">("VOO");
 
   return (
     <div className="retro-grid mx-auto max-w-5xl px-6 py-8">
@@ -19,12 +20,14 @@ export default function DashboardPage() {
         <PortfolioSummary
           includeRealized={includeRealized}
           onToggleRealized={setIncludeRealized}
+          selectedBenchmark={selectedBenchmark}
+          onBenchmarkChange={setSelectedBenchmark}
         />
       </section>
 
       {/* Portfolio Chart */}
       <section className="mb-8">
-        <PortfolioChart />
+        <PortfolioChart selectedBenchmark={selectedBenchmark} />
       </section>
 
       {/* Accounts Section */}
