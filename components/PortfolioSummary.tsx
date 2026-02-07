@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RetroCard } from "./ui/RetroCard";
 import { RetroCheckbox } from "./ui/RetroCheckbox";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { formatCurrency, formatPercent, formatPercentAbsolute } from "@/lib/utils";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
@@ -46,6 +46,12 @@ export function PortfolioSummary({
           <RetroCard glowColor="green" className="animate-pulse">
             <div className="h-20" />
           </RetroCard>
+          <RetroCard glowColor="yellow" className="animate-pulse">
+            <div className="h-20" />
+          </RetroCard>
+          <RetroCard glowColor="magenta" className="animate-pulse">
+            <div className="h-20" />
+          </RetroCard>
         </div>
       </div>
     );
@@ -58,6 +64,7 @@ export function PortfolioSummary({
   const unrealizedGainLoss = summary.totalValue - summary.totalCost;
   const isPositiveGainLoss = unrealizedGainLoss >= 0;
   const isPositiveReturn = summary.timeWeightedReturn >= 0;
+  const isPositiveSharpe = (summary.sharpeRatio ?? 0) >= 0;
 
   return (
     <div>
@@ -76,32 +83,31 @@ export function PortfolioSummary({
           </p>
           <div className="mt-2 space-y-0.5">
             <p className="font-terminal text-base text-foreground/30">
-              {summary.holdings} active holding
-              {summary.holdings !== 1 ? "s" : ""} as of{" "}
-              {summary.valuationDate}
-            </p>
-            <p
-              className={`font-terminal text-base ${
-                isPositiveGainLoss
-                  ? "text-neon-green/60"
-                  : "text-neon-red/60"
-              }`}
-            >
               Unrealized G/L:{" "}
-              {isPositiveGainLoss ? "+" : ""}
-              {formatCurrency(unrealizedGainLoss)}
-            </p>
-            {includeRealized && summary.realizedGainLoss !== 0 && (
-              <p
-                className={`font-terminal text-base ${
-                  summary.realizedGainLoss >= 0
+              <span
+                className={
+                  isPositiveGainLoss
                     ? "text-neon-green/60"
                     : "text-neon-red/60"
-                }`}
+                }
               >
+                {isPositiveGainLoss ? "+" : ""}
+                {formatCurrency(unrealizedGainLoss)}
+              </span>
+            </p>
+            {includeRealized && summary.realizedGainLoss !== 0 && (
+              <p className="font-terminal text-base text-foreground/30">
                 Realized G/L:{" "}
-                {summary.realizedGainLoss >= 0 ? "+" : ""}
-                {formatCurrency(summary.realizedGainLoss)}
+                <span
+                  className={
+                    summary.realizedGainLoss >= 0
+                      ? "text-neon-green/60"
+                      : "text-neon-red/60"
+                  }
+                >
+                  {summary.realizedGainLoss >= 0 ? "+" : ""}
+                  {formatCurrency(summary.realizedGainLoss)}
+                </span>
               </p>
             )}
           </div>
@@ -121,6 +127,34 @@ export function PortfolioSummary({
           </p>
           <p className="mt-2 font-terminal text-base text-foreground/30">
             Cost basis: {formatCurrency(summary.totalCost)}
+          </p>
+        </RetroCard>
+        <RetroCard glowColor="yellow">
+          <p className="mb-1 font-terminal text-lg text-foreground/50">
+            VOLATILITY
+          </p>
+          <p className="glow-yellow font-retro text-lg text-neon-yellow sm:text-xl">
+            {formatPercentAbsolute(summary.annualizedVolatility ?? 0)}
+          </p>
+          <p className="mt-2 font-terminal text-base text-foreground/30">
+            Annualized standard deviation
+          </p>
+        </RetroCard>
+        <RetroCard glowColor="magenta">
+          <p className="mb-1 font-terminal text-lg text-foreground/50">
+            RISK-ADJUSTED RETURN
+          </p>
+          <p
+            className={`font-retro text-lg sm:text-xl ${
+              isPositiveSharpe
+                ? "glow-green text-neon-green"
+                : "glow-red text-neon-red"
+            }`}
+          >
+            {(summary.sharpeRatio ?? 0).toFixed(2)}
+          </p>
+          <p className="mt-2 font-terminal text-base text-foreground/30">
+            Sharpe Ratio (4% risk-free rate)
           </p>
         </RetroCard>
       </div>

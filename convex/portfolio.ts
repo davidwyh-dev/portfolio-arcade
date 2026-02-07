@@ -22,6 +22,8 @@ export const getSummary = query({
       totalCost: 0,
       realizedGainLoss: 0,
       timeWeightedReturn: 0,
+      annualizedVolatility: 0,
+      sharpeRatio: 0,
       holdings: 0,
       valuationDate: "",
     };
@@ -129,11 +131,112 @@ export const getSummary = query({
           : cumulativeTWR;
     }
 
+    // ── Compute Annualized Volatility & Sharpe Ratio ──────────────
+    // Calculate these metrics using historical daily returns
+    let annualizedVolatility = 0;
+    let sharpeRatio = 0;
+
+    // Get historical prices to calculate volatility
+    const tickers = [...new Set(relevant.map((inv) => inv.ticker))];
+    const historicalData = await Promise.all(
+      tickers.map((ticker) =>
+        ctx.db
+          .query("historicalPriceCache")
+          .withIndex("by_ticker", (q) => q.eq("ticker", ticker))
+          .first()
+      )
+    );
+
+    // Build a map of ticker -> historical prices
+    const priceMap = new Map<string, Array<{ date: string; adjClose: number }>>();
+    for (let i = 0; i < tickers.length; i++) {
+      const data = historicalData[i];
+      if (data && data.prices) {
+        priceMap.set(tickers[i], data.prices);
+      }
+    }
+
+    // Get all unique dates from historical data
+    const allDates = new Set<string>();
+    for (const prices of priceMap.values()) {
+      for (const price of prices) {
+        allDates.add(price.date);
+      }
+    }
+
+    // Sort dates and filter to dates between earliest acquisition and valuation date
+    const sortedDates = Array.from(allDates)
+      .sort()
+      .filter((date) => {
+        if (lotReturns.length === 0) return false;
+        return date >= lotReturns[0].dateAcquired && date <= valuationDate;
+      });
+
+    // Calculate daily portfolio values
+    const dailyValues: number[] = [];
+    for (const date of sortedDates) {
+      const relevantInvs = relevant.filter(
+        (inv) => inv.dateAcquired <= date && (!inv.dateSold || inv.dateSold > date)
+      );
+
+      let dailyValue = 0;
+      for (const inv of relevantInvs) {
+        const historicalPrices = priceMap.get(inv.ticker);
+        if (!historicalPrices) continue;
+
+        const priceEntry = historicalPrices
+          .filter((p) => p.date <= date)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        if (priceEntry) {
+          dailyValue += priceEntry.adjClose * inv.units;
+        }
+      }
+
+      if (dailyValue > 0) {
+        dailyValues.push(dailyValue);
+      }
+    }
+
+    // Calculate daily returns
+    if (dailyValues.length > 1) {
+      const dailyReturns: number[] = [];
+      for (let i = 1; i < dailyValues.length; i++) {
+        const dailyReturn = (dailyValues[i] - dailyValues[i - 1]) / dailyValues[i - 1];
+        dailyReturns.push(dailyReturn);
+      }
+
+      if (dailyReturns.length > 0) {
+        // Calculate average daily return
+        const avgDailyReturn =
+          dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
+
+        // Calculate standard deviation of daily returns
+        const variance =
+          dailyReturns.reduce((sum, r) => sum + Math.pow(r - avgDailyReturn, 2), 0) /
+          dailyReturns.length;
+        const dailyStdDev = Math.sqrt(variance);
+
+        // Annualized volatility (assuming 252 trading days per year)
+        annualizedVolatility = dailyStdDev * Math.sqrt(252);
+
+        // Sharpe Ratio (using 4% risk-free rate as assumption)
+        const riskFreeRate = 0.04;
+        const annualizedReturn = Math.pow(1 + avgDailyReturn, 252) - 1;
+        sharpeRatio =
+          annualizedVolatility > 0
+            ? (annualizedReturn - riskFreeRate) / annualizedVolatility
+            : 0;
+      }
+    }
+
     return {
       totalValue,
       totalCost,
       realizedGainLoss,
       timeWeightedReturn,
+      annualizedVolatility,
+      sharpeRatio,
       holdings: active.length,
       valuationDate,
     };

@@ -12,6 +12,10 @@ export function formatPercent(value: number): string {
   return `${sign}${(value * 100).toFixed(2)}%`;
 }
 
+export function formatPercentAbsolute(value: number): string {
+  return `${(value * 100).toFixed(2)}%`;
+}
+
 /** Parse a YYYY-MM-DD string as local midnight (not UTC). */
 function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
