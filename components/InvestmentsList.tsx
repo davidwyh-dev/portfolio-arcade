@@ -8,7 +8,8 @@ import { RetroCard } from "./ui/RetroCard";
 import { RetroButton } from "./ui/RetroButton";
 import { InvestmentForm } from "./InvestmentForm";
 import { InvestmentBulkModal } from "./InvestmentBulkModal";
-import { Plus, Pencil, Trash2, RefreshCw, Database } from "lucide-react";
+import { InvestmentPriceHistory } from "./InvestmentPriceHistory";
+import { Plus, Pencil, Trash2, RefreshCw, Database, BarChart3 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface InvestmentsListProps {
@@ -39,6 +40,8 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
     | undefined
   >(undefined);
   const [refreshing, setRefreshing] = useState(false);
+  const [priceHistoryTicker, setPriceHistoryTicker] = useState("");
+  const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
 
   const displayInvestments = investments
     ? showSold
@@ -83,8 +86,8 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
             let priceUsd = quote.price;
             let fxRate = 1;
 
-            // If investment currency is not USD, the stock price from
-            // Finnhub may be in the local currency — apply FX rate
+            // If investment currency is not USD, the stock price
+            // may be in the local currency — apply FX rate
             if (inv.currency !== "USD") {
               try {
                 const { rate } = await fetchSingleRate({
@@ -282,6 +285,16 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex justify-end gap-1">
                         <button
+                          onClick={() => {
+                            setPriceHistoryTicker(inv.ticker);
+                            setPriceHistoryOpen(true);
+                          }}
+                          className="p-1 text-foreground/30 transition-colors hover:text-neon-green"
+                          title="Price history"
+                        >
+                          <BarChart3 size={14} />
+                        </button>
+                        <button
                           onClick={() => handleEdit(inv)}
                           className="p-1 text-foreground/30 transition-colors hover:text-neon-cyan"
                         >
@@ -314,6 +327,12 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
       <InvestmentBulkModal
         isOpen={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
+      />
+
+      <InvestmentPriceHistory
+        isOpen={priceHistoryOpen}
+        onClose={() => setPriceHistoryOpen(false)}
+        ticker={priceHistoryTicker}
       />
     </div>
   );

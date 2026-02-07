@@ -46,4 +46,17 @@ export default defineSchema({
     rate: v.float64(),
     updatedAt: v.string(),
   }).index("by_pair", ["baseCurrency", "quoteCurrency"]),
+
+  historicalPriceCache: defineTable({
+    ticker: v.string(),
+    prices: v.array(
+      v.object({
+        date: v.string(),
+        adjClose: v.float64(),
+      })
+    ),
+    startDate: v.string(),
+    endDate: v.string(),
+    updatedAt: v.string(),
+  }).index("by_ticker", ["ticker"]),
 });
