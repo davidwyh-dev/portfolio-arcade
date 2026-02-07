@@ -7,7 +7,8 @@ import { Id } from "@/convex/_generated/dataModel";
 import { RetroCard } from "./ui/RetroCard";
 import { RetroButton } from "./ui/RetroButton";
 import { InvestmentForm } from "./InvestmentForm";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { InvestmentBulkModal } from "./InvestmentBulkModal";
+import { Plus, Pencil, Trash2, RefreshCw, Database } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface InvestmentsListProps {
@@ -22,6 +23,7 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
   const fetchSingleRate = useAction(api.fxRates.fetchSingleRate);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [editInvestment, setEditInvestment] = useState<
     | {
         _id: Id<"investments">;
@@ -134,6 +136,14 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
           <RetroButton
             size="sm"
             variant="secondary"
+            onClick={() => setBulkModalOpen(true)}
+          >
+            <Database size={14} className="mr-1 inline" />
+            BULK
+          </RetroButton>
+          <RetroButton
+            size="sm"
+            variant="secondary"
             onClick={() => {
               setEditInvestment(undefined);
               setFormOpen(true);
@@ -149,7 +159,7 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
         <RetroCard glowColor="green" className="animate-pulse">
           <div className="h-24" />
         </RetroCard>
-      ) : displayInvestments.length === 0 ? (
+      ) : displayInvestments && displayInvestments.length === 0 ? (
         <RetroCard glowColor="green">
           <p className="text-center font-terminal text-lg text-foreground/30">
             NO INVESTMENTS YET — ADD YOUR FIRST HOLDING
@@ -283,6 +293,11 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
         isOpen={formOpen}
         onClose={handleClose}
         editInvestment={editInvestment}
+      />
+
+      <InvestmentBulkModal
+        isOpen={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
       />
     </div>
   );

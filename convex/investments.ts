@@ -134,3 +134,53 @@ export const updatePrice = mutation({
     await ctx.db.patch(args.id, patch);
   },
 });
+
+export const bulkCreate = mutation({
+  args: {
+    investments: v.array(
+      v.object({
+        accountId: v.id("accounts"),
+        ticker: v.string(),
+        dateAcquired: v.string(),
+        dateSold: v.optional(v.string()),
+        units: v.float64(),
+        unitPrice: v.float64(),
+        soldUnitPrice: v.optional(v.float64()),
+        currency: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const createdIds: string[] = [];
+
+    for (const investment of args.investments) {
+      // Verify account ownership
+      const account = await ctx.db.get(investment.accountId);
+      if (!account || account.userId !== userId) {
+        throw new Error(`Account not found: ${investment.accountId}`);
+      }
+
+      const costBasis = investment.unitPrice * investment.units;
+
+      const id = await ctx.db.insert("investments", {
+        userId,
+        accountId: investment.accountId,
+        ticker: investment.ticker.toUpperCase(),
+        dateAcquired: investment.dateAcquired,
+        dateSold: investment.dateSold,
+        units: investment.units,
+        unitPrice: investment.unitPrice,
+        costBasis,
+        soldUnitPrice: investment.soldUnitPrice,
+        currency: investment.currency,
+      });
+
+      createdIds.push(id);
+    }
+
+    return { count: createdIds.length, ids: createdIds };
+  },
+});
