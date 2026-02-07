@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PortfolioSummary } from "@/components/PortfolioSummary";
+import { PortfolioChart } from "@/components/PortfolioChart";
 import { AccountsList } from "@/components/AccountsList";
 import { InvestmentsList } from "@/components/InvestmentsList";
 
@@ -19,6 +20,11 @@ export default function DashboardPage() {
           includeRealized={includeRealized}
           onToggleRealized={setIncludeRealized}
         />
+      </section>
+
+      {/* Portfolio Chart */}
+      <section className="mb-8">
+        <PortfolioChart />
       </section>
 
       {/* Accounts Section */}

@@ -139,3 +139,136 @@ export const getSummary = query({
     };
   },
 });
+
+/** Get historical portfolio values over time using cached historical prices */
+export const getHistoricalValues = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const investments = await ctx.db
+      .query("investments")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    if (investments.length === 0) return [];
+
+    // Get unique tickers
+    const tickers = [...new Set(investments.map((inv) => inv.ticker))];
+
+    // Fetch historical prices for all tickers
+    const historicalData = await Promise.all(
+      tickers.map((ticker) =>
+        ctx.db
+          .query("historicalPriceCache")
+          .withIndex("by_ticker", (q) => q.eq("ticker", ticker))
+          .first()
+      )
+    );
+
+    // Build a map of ticker -> historical prices
+    const priceMap = new Map<string, Array<{ date: string; adjClose: number }>>();
+    for (let i = 0; i < tickers.length; i++) {
+      const data = historicalData[i];
+      if (data && data.prices) {
+        priceMap.set(tickers[i], data.prices);
+      }
+    }
+
+    // Find the earliest acquisition date
+    const earliestAcquisition = investments
+      .map((inv) => inv.dateAcquired)
+      .sort()[0];
+
+    if (!earliestAcquisition) return [];
+
+    // Get all unique dates from all historical data
+    const allDates = new Set<string>();
+    for (const prices of priceMap.values()) {
+      for (const price of prices) {
+        allDates.add(price.date);
+      }
+    }
+
+    // Sort dates chronologically and filter to only include dates on or after earliest acquisition
+    const sortedDates = Array.from(allDates)
+      .sort()
+      .filter((date) => date >= earliestAcquisition);
+
+    // For each date, calculate portfolio value and time-weighted return
+    const result = sortedDates.map((date) => {
+      // Filter investments that were acquired on or before this date
+      const relevantInvestments = investments.filter(
+        (inv) => inv.dateAcquired <= date && (!inv.dateSold || inv.dateSold > date)
+      );
+
+      let totalValue = 0;
+      let totalCost = 0;
+
+      // Calculate portfolio value for this date
+      for (const inv of relevantInvestments) {
+        const historicalPrices = priceMap.get(inv.ticker);
+        if (!historicalPrices) continue;
+
+        // Find the price for this date (or most recent prior)
+        const priceEntry = historicalPrices
+          .filter((p) => p.date <= date)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        if (priceEntry) {
+          const value = priceEntry.adjClose * inv.units;
+          totalValue += value;
+          totalCost += inv.costBasisUsd ?? inv.costBasis;
+        }
+      }
+
+      // Calculate time-weighted return as of this date
+      const lotReturns: Array<{ dateAcquired: string; hpr: number }> = [];
+      
+      for (const inv of relevantInvestments) {
+        const historicalPrices = priceMap.get(inv.ticker);
+        if (!historicalPrices) continue;
+
+        const priceEntry = historicalPrices
+          .filter((p) => p.date <= date)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        if (priceEntry) {
+          const cost = inv.costBasisUsd ?? inv.costBasis;
+          const value = priceEntry.adjClose * inv.units;
+          if (cost > 0 && value > 0) {
+            lotReturns.push({
+              dateAcquired: inv.dateAcquired,
+              hpr: (value - cost) / cost,
+            });
+          }
+        }
+      }
+
+      let timeWeightedReturn = 0;
+      if (lotReturns.length > 0) {
+        lotReturns.sort((a, b) => a.dateAcquired.localeCompare(b.dateAcquired));
+        const cumulativeTWR =
+          lotReturns.reduce((acc, lr) => acc * (1 + lr.hpr), 1) - 1;
+        
+        const earliest = toDate(lotReturns[0].dateAcquired);
+        const end = toDate(date);
+        const totalDays = daysBetweenDates(earliest, end);
+
+        timeWeightedReturn =
+          totalDays >= 365
+            ? Math.pow(1 + cumulativeTWR, 365 / totalDays) - 1
+            : cumulativeTWR;
+      }
+
+      return {
+        date,
+        totalValue,
+        timeWeightedReturn: timeWeightedReturn * 100, // Convert to percentage
+      };
+    });
+
+    return result;
+  },
+});
