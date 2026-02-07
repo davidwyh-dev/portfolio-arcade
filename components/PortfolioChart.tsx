@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RetroCard } from "./ui/RetroCard";
+import { RetroButton } from "./ui/RetroButton";
 import {
   ComposedChart,
   Bar,
@@ -13,10 +15,14 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
 
+type ChartMode = "value" | "gainLoss";
+
 export function PortfolioChart() {
+  const [chartMode, setChartMode] = useState<ChartMode>("value");
   const historicalData = useQuery(api.portfolio.getHistoricalValues);
 
   if (!historicalData) {
@@ -48,12 +54,17 @@ export function PortfolioChart() {
     }),
     fullDate: item.date,
     portfolioValue: item.totalValue,
+    gainLoss: item.gainLoss,
     timeWeightedReturn: item.timeWeightedReturn,
   }));
 
   // Determine color based on latest time-weighted return
   const latestReturn = historicalData[historicalData.length - 1]?.timeWeightedReturn ?? 0;
   const isPositiveReturn = latestReturn >= 0;
+  
+  // Determine if latest gain/loss is positive
+  const latestGainLoss = historicalData[historicalData.length - 1]?.gainLoss ?? 0;
+  const isPositiveGainLoss = latestGainLoss >= 0;
   
   // Color scheme matching the widget above
   const returnLineColor = isPositiveReturn
@@ -66,15 +77,51 @@ export function PortfolioChart() {
     ? "rgba(57, 255, 20, 0.5)"
     : "rgba(255, 7, 58, 0.5)";
 
+  // Left Y-axis colors based on mode
+  const leftAxisColor = chartMode === "value"
+    ? "rgba(0, 255, 255, 0.8)" // cyan for value mode
+    : "rgba(255, 0, 255, 0.8)"; // magenta for G/L mode
+  const leftAxisTickColor = chartMode === "value"
+    ? "rgba(0, 255, 255, 0.5)"
+    : "rgba(255, 0, 255, 0.5)";
+
+  const chartTitle = chartMode === "value" 
+    ? "PORTFOLIO VALUE & TIME-WEIGHTED RETURN"
+    : "GAIN/LOSS & TIME-WEIGHTED RETURN";
+  
+  const chartSubtitle = chartMode === "value"
+    ? "Historical performance over time"
+    : "Unrealized gains and losses over time";
+
   return (
     <RetroCard glowColor="cyan">
-      <div className="mb-4">
-        <h3 className="font-terminal text-lg text-foreground/50">
-          PORTFOLIO VALUE & TIME-WEIGHTED RETURN
-        </h3>
-        <p className="mt-1 font-terminal text-sm text-foreground/30">
-          Historical performance over time
-        </p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h3 className="font-terminal text-lg text-foreground/50">
+            {chartTitle}
+          </h3>
+          <p className="mt-1 font-terminal text-sm text-foreground/30">
+            {chartSubtitle}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <RetroButton
+            variant="primary"
+            size="sm"
+            onClick={() => setChartMode("value")}
+            className={chartMode !== "value" ? "opacity-40" : ""}
+          >
+            VALUE
+          </RetroButton>
+          <RetroButton
+            variant="secondary"
+            size="sm"
+            onClick={() => setChartMode("gainLoss")}
+            className={chartMode !== "gainLoss" ? "opacity-40" : ""}
+          >
+            G/L
+          </RetroButton>
+        </div>
       </div>
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart
@@ -93,9 +140,9 @@ export function PortfolioChart() {
           />
           <YAxis
             yAxisId="left"
-            stroke="rgba(0, 255, 255, 0.8)"
-            tick={{ fill: "rgba(0, 255, 255, 0.8)", fontSize: 12 }}
-            tickLine={{ stroke: "rgba(0, 255, 255, 0.5)" }}
+            stroke={leftAxisColor}
+            tick={{ fill: leftAxisColor, fontSize: 12 }}
+            tickLine={{ stroke: leftAxisTickColor }}
             tickFormatter={(value) => {
               if (value >= 1000000) {
                 return `$${(value / 1000000).toFixed(1)}M`;
@@ -122,7 +169,7 @@ export function PortfolioChart() {
             }}
             labelStyle={{ color: "rgba(255, 255, 255, 0.8)" }}
             formatter={(value: any, name: string) => {
-              if (name === "Portfolio Value") {
+              if (name === "Portfolio Value" || name === "Gain/Loss") {
                 return [formatCurrency(value), name];
               } else if (name === "Time-Weighted Return") {
                 return [`${value.toFixed(2)}%`, name];
@@ -146,11 +193,21 @@ export function PortfolioChart() {
           />
           <Bar
             yAxisId="left"
-            dataKey="portfolioValue"
-            fill="rgba(0, 255, 255, 0.6)"
-            name="Portfolio Value"
+            dataKey={chartMode === "value" ? "portfolioValue" : "gainLoss"}
+            name={chartMode === "value" ? "Portfolio Value" : "Gain/Loss"}
             radius={[4, 4, 0, 0]}
-          />
+          >
+            {chartData.map((entry, index) => {
+              if (chartMode === "value") {
+                return <Cell key={`cell-${index}`} fill="rgba(0, 255, 255, 0.6)" />;
+              } else {
+                const color = entry.gainLoss >= 0 
+                  ? "rgba(57, 255, 20, 0.6)" // green for gains
+                  : "rgba(255, 7, 58, 0.6)"; // red for losses
+                return <Cell key={`cell-${index}`} fill={color} />;
+              }
+            })}
+          </Bar>
           <Line
             yAxisId="right"
             type="monotone"

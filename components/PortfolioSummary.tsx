@@ -55,6 +55,8 @@ export function PortfolioSummary({
     ? summary.totalValue + summary.realizedGainLoss
     : summary.totalValue;
 
+  const unrealizedGainLoss = summary.totalValue - summary.totalCost;
+  const isPositiveGainLoss = unrealizedGainLoss >= 0;
   const isPositiveReturn = summary.timeWeightedReturn >= 0;
 
   return (
@@ -78,6 +80,17 @@ export function PortfolioSummary({
               {summary.holdings !== 1 ? "s" : ""} as of{" "}
               {summary.valuationDate}
             </p>
+            <p
+              className={`font-terminal text-base ${
+                isPositiveGainLoss
+                  ? "text-neon-green/60"
+                  : "text-neon-red/60"
+              }`}
+            >
+              Unrealized G/L:{" "}
+              {isPositiveGainLoss ? "+" : ""}
+              {formatCurrency(unrealizedGainLoss)}
+            </p>
             {includeRealized && summary.realizedGainLoss !== 0 && (
               <p
                 className={`font-terminal text-base ${
@@ -86,7 +99,7 @@ export function PortfolioSummary({
                     : "text-neon-red/60"
                 }`}
               >
-                Realized {summary.realizedGainLoss >= 0 ? "gain" : "loss"}:{" "}
+                Realized G/L:{" "}
                 {summary.realizedGainLoss >= 0 ? "+" : ""}
                 {formatCurrency(summary.realizedGainLoss)}
               </p>

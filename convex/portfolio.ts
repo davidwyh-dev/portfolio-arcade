@@ -265,6 +265,8 @@ export const getHistoricalValues = query({
       return {
         date,
         totalValue,
+        totalCost,
+        gainLoss: totalValue - totalCost,
         timeWeightedReturn: timeWeightedReturn * 100, // Convert to percentage
       };
     });
