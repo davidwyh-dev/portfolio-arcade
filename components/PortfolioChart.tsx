@@ -182,13 +182,13 @@ export function PortfolioChart({ selectedBenchmark }: PortfolioChartProps) {
               fontFamily: "monospace",
             }}
             labelStyle={{ color: "rgba(255, 255, 255, 0.8)" }}
-            formatter={(value: any, name: string) => {
+            formatter={(value: any, name: string | undefined) => {
               if (name === "Portfolio Value" || name === "Gain/Loss") {
                 return [formatCurrency(value), name];
-              } else if (name === "Time-Weighted Return" || name.includes("Benchmark")) {
+              } else if (name === "Time-Weighted Return" || (name && name.includes("Benchmark"))) {
                 return [`${value.toFixed(2)}%`, name];
               }
-              return [value, name];
+              return [value, name ?? ""];
             }}
             labelFormatter={(label, payload) => {
               if (payload && payload.length > 0) {
