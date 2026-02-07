@@ -186,6 +186,9 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
                   UNIT PRICE
                 </th>
                 <th className="px-3 py-2 text-right font-terminal text-base text-foreground/40">
+                  MARKET PRICE
+                </th>
+                <th className="px-3 py-2 text-right font-terminal text-base text-foreground/40">
                   COST BASIS
                 </th>
                 <th className="px-3 py-2 text-right font-terminal text-base text-foreground/40">
@@ -237,6 +240,19 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
                       {formatCurrency(
                         inv.unitPrice ?? (inv.units > 0 ? inv.costBasis / inv.units : 0),
                         inv.currency
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-sm">
+                      {isSold && inv.soldUnitPrice ? (
+                        <span className="text-foreground/60">
+                          {formatCurrency(inv.soldUnitPrice, inv.currency)}
+                        </span>
+                      ) : inv.currentPriceUsd !== undefined ? (
+                        <span className="font-medium text-neon-cyan">
+                          {formatCurrency(inv.currentPriceUsd)}
+                        </span>
+                      ) : (
+                        <span className="text-foreground/20">—</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-sm text-foreground/60">
