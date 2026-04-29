@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQuery, useAction } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { RetroInput } from "./ui/RetroInput";
@@ -9,13 +9,19 @@ import { RetroSelect } from "./ui/RetroSelect";
 import { RetroButton } from "./ui/RetroButton";
 import { RetroModal } from "./ui/RetroModal";
 import { CURRENCIES } from "@/lib/constants";
+import {
+  useAccountsData,
+  useCreateInvestment,
+  useUpdateInvestment,
+} from "@/lib/hooks/usePortfolioData";
+import { useAppMode } from "@/lib/appMode";
 
 interface InvestmentFormProps {
   isOpen: boolean;
   onClose: () => void;
   editInvestment?: {
-    _id: Id<"investments">;
-    accountId: Id<"accounts">;
+    _id: string;
+    accountId: string;
     ticker: string;
     dateAcquired: string;
     dateSold?: string;
@@ -31,9 +37,10 @@ export function InvestmentForm({
   onClose,
   editInvestment,
 }: InvestmentFormProps) {
-  const accounts = useQuery(api.accounts.list);
-  const createInvestment = useMutation(api.investments.create);
-  const updateInvestment = useMutation(api.investments.update);
+  const { mode } = useAppMode();
+  const accounts = useAccountsData();
+  const createInvestment = useCreateInvestment();
+  const updateInvestment = useUpdateInvestment();
   const updatePrice = useMutation(api.investments.updatePrice);
   const searchTicker = useAction(api.marketData.searchTicker);
   const fetchQuote = useAction(api.marketData.fetchQuote);
@@ -122,7 +129,7 @@ export function InvestmentForm({
         : undefined;
 
       const investmentData = {
-        accountId: accountId as Id<"accounts">,
+        accountId,
         ticker: ticker.toUpperCase(),
         dateAcquired,
         dateSold: dateSold || undefined,
@@ -132,7 +139,7 @@ export function InvestmentForm({
         currency,
       };
 
-      let investmentId: Id<"investments">;
+      let investmentId: string;
       if (editInvestment) {
         await updateInvestment({ id: editInvestment._id, ...investmentData });
         investmentId = editInvestment._id;
@@ -140,41 +147,44 @@ export function InvestmentForm({
         investmentId = await createInvestment(investmentData);
       }
 
-      // Automatically fetch current price & FX rate so Value (USD) is
-      // populated immediately instead of requiring a manual refresh.
-      try {
-        const quote = await fetchQuote({ ticker: investmentData.ticker });
-        let priceUsd = quote.price;
-        let fxRate = 1;
+      // Auth mode: auto-fetch live price + FX so Value (USD) is populated
+      // immediately. Guest mode (cache-only policy) skips network fetches —
+      // the create hook seeds values from cached quotes when available.
+      if (mode === "auth") {
+        try {
+          const quote = await fetchQuote({ ticker: investmentData.ticker });
+          let priceUsd = quote.price;
+          let fxRate = 1;
 
-        if (investmentData.currency !== "USD") {
-          try {
-            const { rate } = await fetchSingleRate({
-              from: investmentData.currency,
-              to: "USD",
-            });
-            fxRate = rate;
-            priceUsd = quote.price * rate;
-          } catch {
-            // If FX lookup fails, fall back to raw price (assumes USD)
+          if (investmentData.currency !== "USD") {
+            try {
+              const { rate } = await fetchSingleRate({
+                from: investmentData.currency,
+                to: "USD",
+              });
+              fxRate = rate;
+              priceUsd = quote.price * rate;
+            } catch {
+              // FX failed → fall back to raw price (assume USD)
+            }
           }
-        }
 
-        const currentValueUsd = priceUsd * investmentData.units;
-        const costBasisUsd = costBasis * fxRate;
-        const soldValueUsd =
-          parsedSoldUnitPrice !== undefined
-            ? parsedSoldUnitPrice * investmentData.units * fxRate
-            : undefined;
-        await updatePrice({
-          id: investmentId,
-          currentPriceUsd: priceUsd,
-          currentValueUsd,
-          costBasisUsd,
-          soldValueUsd,
-        });
-      } catch {
-        // Price fetch failed — value will be populated on next manual refresh
+          const currentValueUsd = priceUsd * investmentData.units;
+          const costBasisUsd = costBasis * fxRate;
+          const soldValueUsd =
+            parsedSoldUnitPrice !== undefined
+              ? parsedSoldUnitPrice * investmentData.units * fxRate
+              : undefined;
+          await updatePrice({
+            id: investmentId as Id<"investments">,
+            currentPriceUsd: priceUsd,
+            currentValueUsd,
+            costBasisUsd,
+            soldValueUsd,
+          });
+        } catch {
+          // Price fetch failed — value will populate on next manual refresh
+        }
       }
 
       onClose();

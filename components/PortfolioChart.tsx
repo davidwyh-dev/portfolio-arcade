@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { RetroCard } from "./ui/RetroCard";
+import { useHistoricalValues } from "@/lib/hooks/usePortfolioData";
 import { RetroButton } from "./ui/RetroButton";
 import {
   ComposedChart,
@@ -27,7 +26,7 @@ interface PortfolioChartProps {
 
 export function PortfolioChart({ selectedBenchmark }: PortfolioChartProps) {
   const [chartMode, setChartMode] = useState<ChartMode>("value");
-  const historicalData = useQuery(api.portfolio.getHistoricalValues, {
+  const historicalData = useHistoricalValues({
     benchmarkTicker: selectedBenchmark,
   });
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { RetroCard } from "./ui/RetroCard";
 import { RetroCheckbox } from "./ui/RetroCheckbox";
 import { formatCurrency, formatPercent, formatPercentAbsolute } from "@/lib/utils";
+import { useSummary } from "@/lib/hooks/usePortfolioData";
+import { useAppMode } from "@/lib/appMode";
 
 function todayISO(): string {
   return new Date().toISOString().split("T")[0];
@@ -24,24 +26,21 @@ export function PortfolioSummary({
   selectedBenchmark,
   onBenchmarkChange,
 }: PortfolioSummaryProps) {
+  const { mode } = useAppMode();
   const valuationDate = todayISO();
 
-  const queryArgs = useMemo(
-    () => ({
-      ...(valuationDate ? { valuationDate } : {}),
-    }),
-    [valuationDate]
-  );
-
-  const summary = useQuery(api.portfolio.getSummary, queryArgs);
+  const summary = useSummary({ valuationDate });
   const fetchHistoricalPrices = useAction(api.marketData.fetchHistoricalPrices);
 
-  // Check and fetch benchmark historical data
+  // Check and (in auth mode only) fetch benchmark historical data.
+  // Guests are restricted to whatever's already in the cache.
   const vooCached = useQuery(api.marketData.getHistoricalCache, { ticker: "VOO" });
   const qqqCached = useQuery(api.marketData.getHistoricalCache, { ticker: "QQQ" });
   const diaCached = useQuery(api.marketData.getHistoricalCache, { ticker: "DIA" });
 
   useEffect(() => {
+    if (mode !== "auth") return;
+
     const fetchBenchmarkData = async (ticker: string) => {
       try {
         await fetchHistoricalPrices({ ticker });
@@ -50,7 +49,6 @@ export function PortfolioSummary({
       }
     };
 
-    // Check if benchmark data needs to be fetched
     if (vooCached === undefined || qqqCached === undefined || diaCached === undefined) {
       return; // Still loading
     }
@@ -71,7 +69,7 @@ export function PortfolioSummary({
     if (!diaCached || isCacheStale(diaCached)) {
       void fetchBenchmarkData("DIA");
     }
-  }, [vooCached, qqqCached, diaCached, fetchHistoricalPrices]);
+  }, [mode, vooCached, qqqCached, diaCached, fetchHistoricalPrices]);
 
   if (!summary) {
     return (

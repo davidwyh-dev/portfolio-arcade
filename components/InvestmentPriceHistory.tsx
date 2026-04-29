@@ -7,6 +7,7 @@ import { RetroModal } from "./ui/RetroModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 import { RetroButton } from "./ui/RetroButton";
+import { useAppMode } from "@/lib/appMode";
 
 interface InvestmentPriceHistoryProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export function InvestmentPriceHistory({
   onClose,
   ticker,
 }: InvestmentPriceHistoryProps) {
+  const { mode } = useAppMode();
   const cached = useQuery(
     api.marketData.getHistoricalCache,
     isOpen && ticker ? { ticker } : "skip"
@@ -36,8 +38,10 @@ export function InvestmentPriceHistory({
     return now - updatedAt > 24 * 60 * 60 * 1000;
   })();
 
-  // Fetch data when dialog opens and cache is stale or missing
+  // Auth mode only: fetch data when dialog opens and cache is stale or missing.
+  // Guests are limited to whatever's already cached.
   useEffect(() => {
+    if (mode !== "auth") return;
     if (!isOpen || !ticker || loading) return;
     if (!isCacheStale) return;
 
@@ -62,9 +66,10 @@ export function InvestmentPriceHistory({
     };
     // Only re-run when the dialog opens with a (possibly new) ticker
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, ticker]);
+  }, [isOpen, ticker, mode]);
 
   const handleRefresh = async () => {
+    if (mode !== "auth") return;
     setLoading(true);
     setError("");
     try {
@@ -92,18 +97,20 @@ export function InvestmentPriceHistory({
           <p className="font-terminal text-sm text-foreground/40">
             MONTHLY ADJUSTED CLOSE (5Y)
           </p>
-          <RetroButton
-            size="sm"
-            variant="secondary"
-            onClick={() => void handleRefresh()}
-            disabled={loading}
-          >
-            <RefreshCw
-              size={12}
-              className={`mr-1 inline ${loading ? "animate-spin" : ""}`}
-            />
-            {loading ? "LOADING..." : "REFRESH"}
-          </RetroButton>
+          {mode === "auth" && (
+            <RetroButton
+              size="sm"
+              variant="secondary"
+              onClick={() => void handleRefresh()}
+              disabled={loading}
+            >
+              <RefreshCw
+                size={12}
+                className={`mr-1 inline ${loading ? "animate-spin" : ""}`}
+              />
+              {loading ? "LOADING..." : "REFRESH"}
+            </RetroButton>
+          )}
         </div>
 
         {error && (

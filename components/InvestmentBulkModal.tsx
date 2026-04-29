@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { RetroModal } from "./ui/RetroModal";
 import { RetroButton } from "./ui/RetroButton";
 import { Download, Upload, AlertCircle, CheckCircle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  useAccountsData,
+  useBulkCreateInvestments,
+  useInvestmentsData,
+} from "@/lib/hooks/usePortfolioData";
 
 interface InvestmentBulkModalProps {
   isOpen: boolean;
@@ -27,9 +30,9 @@ export function InvestmentBulkModal({
   isOpen,
   onClose,
 }: InvestmentBulkModalProps) {
-  const investments = useQuery(api.investments.list);
-  const accounts = useQuery(api.accounts.list);
-  const bulkCreate = useMutation(api.investments.bulkCreate);
+  const investments = useInvestmentsData();
+  const accounts = useAccountsData();
+  const bulkCreate = useBulkCreateInvestments();
   
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
