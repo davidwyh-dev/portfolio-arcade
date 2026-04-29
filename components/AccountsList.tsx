@@ -1,23 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { RetroCard } from "./ui/RetroCard";
 import { RetroButton } from "./ui/RetroButton";
 import { AccountForm } from "./AccountForm";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { AccountType } from "@/lib/constants";
+import {
+  useAccountsData,
+  useRemoveAccount,
+} from "@/lib/hooks/usePortfolioData";
+import type { Account } from "@/lib/types";
 
 export function AccountsList() {
-  const accounts = useQuery(api.accounts.list);
-  const removeAccount = useMutation(api.accounts.remove);
+  const accounts = useAccountsData();
+  const removeAccount = useRemoveAccount();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editAccount, setEditAccount] = useState<
     | {
-        _id: Id<"accounts">;
+        _id: string;
         name: string;
         accountType: AccountType;
         taxDeferred: boolean;
@@ -27,18 +29,18 @@ export function AccountsList() {
   >(undefined);
   const [deleteError, setDeleteError] = useState("");
 
-  const handleEdit = (account: NonNullable<typeof accounts>[number]) => {
+  const handleEdit = (account: Account) => {
     setEditAccount({
       _id: account._id,
       name: account.name,
-      accountType: account.accountType,
+      accountType: account.accountType as AccountType,
       taxDeferred: account.taxDeferred,
       institution: account.institution,
     });
     setFormOpen(true);
   };
 
-  const handleDelete = async (id: Id<"accounts">) => {
+  const handleDelete = async (id: string) => {
     setDeleteError("");
     try {
       await removeAccount({ id });

@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { RetroInput } from "./ui/RetroInput";
 import { RetroCombobox } from "./ui/RetroCombobox";
 import { RetroCheckbox } from "./ui/RetroCheckbox";
@@ -15,12 +12,16 @@ import {
   TAX_DEFERRED_DEFAULTS,
   AccountType,
 } from "@/lib/constants";
+import {
+  useCreateAccount,
+  useUpdateAccount,
+} from "@/lib/hooks/usePortfolioData";
 
 interface AccountFormProps {
   isOpen: boolean;
   onClose: () => void;
   editAccount?: {
-    _id: Id<"accounts">;
+    _id: string;
     name: string;
     accountType: AccountType;
     taxDeferred: boolean;
@@ -29,8 +30,8 @@ interface AccountFormProps {
 }
 
 export function AccountForm({ isOpen, onClose, editAccount }: AccountFormProps) {
-  const createAccount = useMutation(api.accounts.create);
-  const updateAccount = useMutation(api.accounts.update);
+  const createAccount = useCreateAccount();
+  const updateAccount = useUpdateAccount();
 
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("Investment");

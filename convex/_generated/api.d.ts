@@ -15,6 +15,7 @@ import type * as http from "../http.js";
 import type * as investments from "../investments.js";
 import type * as marketData from "../marketData.js";
 import type * as portfolio from "../portfolio.js";
+import type * as prices from "../prices.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   investments: typeof investments;
   marketData: typeof marketData;
   portfolio: typeof portfolio;
+  prices: typeof prices;
 }>;
 
 /**

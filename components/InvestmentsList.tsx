@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { RetroCard } from "./ui/RetroCard";
@@ -11,14 +11,21 @@ import { InvestmentBulkModal } from "./InvestmentBulkModal";
 import { InvestmentPriceHistory } from "./InvestmentPriceHistory";
 import { Plus, Pencil, Trash2, RefreshCw, Database, BarChart3 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  useInvestmentsData,
+  useRemoveInvestment,
+} from "@/lib/hooks/usePortfolioData";
+import { useAppMode } from "@/lib/appMode";
+import type { InvestmentWithAccount } from "@/lib/types";
 
 interface InvestmentsListProps {
   showSold?: boolean;
 }
 
 export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
-  const investments = useQuery(api.investments.list);
-  const removeInvestment = useMutation(api.investments.remove);
+  const { mode } = useAppMode();
+  const investments = useInvestmentsData();
+  const removeInvestment = useRemoveInvestment();
   const updatePrice = useMutation(api.investments.updatePrice);
   const fetchQuote = useAction(api.marketData.fetchQuote);
   const fetchSingleRate = useAction(api.fxRates.fetchSingleRate);
@@ -27,8 +34,8 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [editInvestment, setEditInvestment] = useState<
     | {
-        _id: Id<"investments">;
-        accountId: Id<"accounts">;
+        _id: string;
+        accountId: string;
         ticker: string;
         dateAcquired: string;
         dateSold?: string;
@@ -49,7 +56,7 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
       : investments.filter((inv) => !inv.dateSold)
     : undefined;
 
-  const handleEdit = (inv: NonNullable<typeof investments>[number]) => {
+  const handleEdit = (inv: InvestmentWithAccount) => {
     setEditInvestment({
       _id: inv._id,
       accountId: inv.accountId,
@@ -104,7 +111,7 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
             const currentValueUsd = priceUsd * inv.units;
             const costBasisUsd = inv.costBasis * fxRate;
             await updatePrice({
-              id: inv._id,
+              id: inv._id as Id<"investments">,
               currentPriceUsd: priceUsd,
               currentValueUsd,
               costBasisUsd,
@@ -124,18 +131,20 @@ export function InvestmentsList({ showSold = true }: InvestmentsListProps) {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-retro text-xs text-neon-green">INVESTMENTS</h2>
         <div className="flex gap-2">
-          <RetroButton
-            size="sm"
-            variant="primary"
-            onClick={() => void refreshPrices()}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={14}
-              className={`mr-1 inline ${refreshing ? "animate-spin" : ""}`}
-            />
-            {refreshing ? "UPDATING..." : "REFRESH"}
-          </RetroButton>
+          {mode === "auth" && (
+            <RetroButton
+              size="sm"
+              variant="primary"
+              onClick={() => void refreshPrices()}
+              disabled={refreshing}
+            >
+              <RefreshCw
+                size={14}
+                className={`mr-1 inline ${refreshing ? "animate-spin" : ""}`}
+              />
+              {refreshing ? "UPDATING..." : "REFRESH"}
+            </RetroButton>
+          )}
           <RetroButton
             size="sm"
             variant="secondary"

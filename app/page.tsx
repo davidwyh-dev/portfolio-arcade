@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Crosshair, BarChart3, RefreshCw } from "lucide-react";
+import { LandingActions } from "@/components/LandingActions";
 
 export default function LandingPage() {
   return (
@@ -15,21 +15,7 @@ export default function LandingPage() {
           Level up your investments
         </p>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <Link
-            href="/auth?mode=signup"
-            className="rounded border border-neon-cyan px-8 py-3 font-retro text-xs text-neon-cyan transition-all duration-200 hover:bg-neon-cyan/10 hover:shadow-[0_0_16px_rgba(0,255,255,0.2)]"
-          >
-            START GAME
-          </Link>
-          <Link
-            href="/auth?mode=login"
-            className="rounded border border-neon-magenta px-8 py-3 font-retro text-xs text-neon-magenta transition-all duration-200 hover:bg-neon-magenta/10 hover:shadow-[0_0_16px_rgba(255,0,255,0.2)]"
-          >
-            CONTINUE
-          </Link>
-        </div>
+        <LandingActions />
       </div>
 
       {/* Feature Cards */}
